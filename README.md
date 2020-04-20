@@ -16,7 +16,7 @@ Belajar bersama scientific ML
 - Parameter Estimation
 - Inverse Problem
 
-## Week 4 (Jumat 15 Mei - 13.00 - 14.30)
+## Week 4 (Jumat, 15 Mei - 13.00 - 14.30)
   ##### by Author 2
 - Renormalization Group
 - Latent Space
