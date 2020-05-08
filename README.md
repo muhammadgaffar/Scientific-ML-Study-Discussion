@@ -44,3 +44,6 @@ Silahkan baca lebih lanjut mengenai [Sci-ML](https://www.stochasticlifestyle.com
 - Latent Space (?)
 - Renormalization Group (?)
 - Hamiltonian, Lagrangian NN (?)
+
+## Contact 
+gafar98[at]gmail.com
