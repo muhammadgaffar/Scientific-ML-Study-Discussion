@@ -1,0 +1,82 @@
+## 1.4 Double Pendulum
+
+Problem populer dari sistem chaotic adalah double pendulum. Dari hasil turunan [hamiltonian](https://www.lehman.edu/faculty/dgaranin/Mechanics/ProblemSet-Fall-2006-4-Solution.pdf), double pendulum memiliki hamiltonian
+sebagai berikut
+
+$$
+\mathcal{H} = T + V \\
+T = \frac{m_2l_2^2p_1^2 + (m_1+m_2)l_1^2p_2^2 - 2m_2l_1l_2\cos(\phi_1-\phi_2)p_1p_2}{2m_2l_1^2l_2^2[m_1+m_2-m_2\cos^2(\phi_1-\phi_2)]} \\
+V =  - (m_1+m_2)gl_1\cos(\phi_1) - m_2gl_2\cos(\phi_2)
+$$
+
+Implementasikan persamaan hamiltonian dan persamaan hamilton nya,
+```julia
+# konstanta
+const m1 = 1.0
+const m2 = 2.0
+const l1 = 1.0
+const l2 = 2.0
+const g = 9.8
+
+function H(p,q)
+  T_a = m2*l2^2*p[1]^2 + (m1+m2)*l1^2*p[2]^2 - 2m2*l1*l2*cos(q[1]-q[2])*p[1]*p[2]
+  T_b = 2m2*l1^2*l2^2*(m1+m2-m2*cos(q[1]-q[2])^2)
+  V = - (m1+m2)*g*l1*cos(q[1]) - m2*g*l2*cos(q[2])
+
+  T_a/T_b + V
+end
+
+# fungsi turunan
+grad!(du,args...) = du .= gradient(args...)[1]
+
+pdot(dp,p,q,params,t) = grad!(dp, q -> -H(p,q), q)
+qdot(dq,p,q,params,t) = grad!(dq, p ->  H(p,q), p)
+```
+
+selesaikan problem persamaan differensial
+```julia
+p0 = [0.0,0.0]
+q0 = [π/3,3π/5]
+ts = (0.0,50.0)
+
+prob = DynamicalODEProblem(pdot,qdot,p0,q0,ts)
+sol  = solve(prob,Vern7(),reltol=1e-10,abstol=1e-10);
+```
+
+transformasi koordinat kedalam koordinat kartesian
+```julia
+function polar_to_cart(sol;dt=0.01,vars=(3,4))
+    t = 0:dt:sol.t[end]
+
+    phi1 = map(x->x[vars[1]], sol.(t))
+    phi2 = map(y->y[vars[2]], sol.(t))
+
+    x1 = l1*sin.(phi1)
+    y1 = -l1*cos.(phi1)
+    x2 = x1 + l2*sin.(phi2)
+    y2 = y1 - l2*cos.(phi2)
+
+    return (t, (x1,y1),(x2, y2))
+end
+
+t , cart1, cart2 = polar_to_cart(sol)
+
+plot(cart1...)
+plot!(cart2...)
+```
+
+Selanjutnya, kita analisis perubahan energi-nya,
+```julia
+# variasi energi terhadap nilai
+ΔE = (H(p0,q0) .- map(u -> H(u[:][1:2],u[:][3:4]),sol.u)) ./ abs(H(p0,q0))
+
+plot(sol.t,ΔE)
+```
+
+Tuning solver sehingga variasi energi kecil.
+```julia
+sol  = solve(prob,Vern7(),reltol=1e-10,abstol=1e-10);
+ΔE = (H(p0,q0) .- map(u -> H(u[:][1:2],u[:][3:4]),sol.u)) ./ abs(H(p0,q0))
+
+plot(sol.t,ΔE)
+```

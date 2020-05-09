@@ -1,0 +1,137 @@
+## 0. Pengenalan Persamaan Differensial
+
+#### Abstrak
+
+Persamaan differensial menjadi tulang punggung utama sistem permodelan diberbagai bidang. Maka dari itu sangat penting untuk mempelajari bagaimana melakukan simulasi suatu sistem persamaan differensial secara numerik. Tutorial ini akan menjelaskan bagaimana penggunaan dasar dari *software/package* **DifferentialEquations.jl** untuk mencari solusi dari suatu sistem persamaan differensial.
+
+#### Mengenal DifferentialEquations.jl
+
+Bentuk persamaan differensial biasa (ODE) diformulasikan sebagai persamaan yang mendeskripsikan bagaimana variabel $u$ berubah terhadap waktu.
+
+$$
+u' = f(u,p,t)
+$$
+
+dimana $p$ adalah parameter dari model, $t$ adalah variabel waktu, dan $f$ adalah model/fungsi non-linier bagaimana $u$ berubah.
+
+Informasi lain yang dibutuhkan adalah nilai awal $u$, ini disebut sebagai *initial value problem*
+
+$$
+u(t_0) = u_0
+$$
+
+Misalkan persamaan decay rate dari suatu atom radioaktif, misalkan setiap tahun suatu atom radioaktif memiliki paruh waktu $t_{1/2} =$ 4 tahun, maka atom ini memiliki decay rate
+
+$$
+\lambda = \frac{\ln 2}{4}
+$$
+
+maka persamaan luluhan atom nya diatur dari persamaan differensial yang sederhana berikut
+
+$$
+N'(t) = -\lambda N(t)
+$$
+
+tentu ini bisa diselesaikan secara analitik, namun poinnya adalah mempelajari menyelesaikan persamaan differensial secara numerik.
+
+Pertama-tama, kita dapat load modul DifferentialEquations.jl dan modul plot
+```julia
+using DifferentialEquations
+using Plots
+```
+
+Dengan formulasi *software* DifferentialEquations.jl, model decay rate diatas dapat ditulis dengan
+```julia
+# buat fungsi u' = f(u,p,t)
+decay(u,λ,t) =  -λ * u
+
+# nilai awal
+u0 = 100.0
+p  = log(2)/4
+ts = (0.0, 40.0)
+
+# definisi problem
+prob = ODEProblem(decay, u0,ts,p)
+sol  = solve(prob);
+```
+
+sekarang kita lihat, informasi apa yang disimpan oleh solusi
+```julia
+sol
+```
+
+dapat kita lihat bahwa solusi merupakan solusi kontinu (interpolasi data), dengan titik interpolasi disimpan dalam data `sol.u` dan `sol.t` masing-masing untuk solusi $u$ dan variabel waktu $t$. Untuk sembarang waktu, dapat kita cari solusinya hanya dengan
+```julia
+sol(98.23)
+```
+
+Selanjutnya, solusi dapat kita visualisasikan dengan
+```julia
+plot(sol, xtick=0:4:40)
+```
+
+#### Numerik : relative-absolute error
+
+Salah satu teknis penting agar solusi memberikan hasil yang mendekati eksak adalah argumen `reltol` dan `abstol` dalam fungsi `solve`, kedua argumen untuk mengontrol error dalam numerik, tradeoff antara akurasi dan efisiensi. Keduanya memiliki nilai default `reltol=1e-3` dan `abstol=1e-6`.
+```julia
+solve(prob, reltol=1e-6,abstol=1e-8);
+```
+
+#### Solver
+
+Tidak semua masalah persamaan differensial memiliki solusi (algoritma) numerik yang sama, dan tidak ada algoritma yang terbaik untuk semua tipe masalah. Maka dari itu berbagai banyak pilihan solver yang bisa digunakan untuk menyelesaikan masalah differensial secara efektif. Penjelasan rekomendasi solver dapat dibaca [disini](https://docs.sciml.ai/stable/solvers/ode_solve/#ode_solve-1).
+
+```julia
+# Menyelesaikan ode dengan Runge-Kutta Orde 4
+solve(prob, RK4())
+```
+
+#### Persamaan dengan berbagai parameter
+
+Contoh persamaan differensial yang kita gunakan adalah persamaan lorenz
+
+$$
+x' = \sigma (y - x) \\
+y' = x (\rho - z) - y\\
+z' = xy - \beta z
+$$
+
+Dalam package yang kita gunakan, permasalahan ini didefinisikan dalam satu variabel `u = [x,y,z]`, yang merupakan vektor. Maka seperti biasa dengan mendefinisikan `f` terlebih dahulu.
+```julia
+function lorenz!(du, u,p,t)
+  σ,ρ,β = p
+  du[1] = σ*(u[2] - u[1])
+  du[2] = u[1]*(ρ - u[3]) - u[2]
+  du[3] = u[1]*u[2] - β * u[3]
+end
+
+# nilai awal
+u0 = [1.0, 0.0, 0.0]
+p  = [10.0, 28.0, 3.0]
+ts = (0.0, 40.0)
+
+prob = ODEProblem(lorenz!, u0,ts,p)
+sol  = solve(prob);
+```
+
+kita visualisasikan fungsi lorenz dalam koodinat (x,y,z)
+```julia
+plot(sol, vars=(1,2,3))
+```
+
+salah satu implementasi code yang paling mudah dibaca dari problem persamaan differensial-ODE ini adalah terdapat *macro* `@ode_def` yang mengatur bagaimana memisahkan parameter, u, dan du. Implementasi problem diatas dapat ditulis,
+```julia
+lr! = @ode_def lorenz begin
+  dx = σ * (y-x)
+  dy = x * (ρ-z) - y
+  dz = x*y - β * z
+end σ ρ β
+
+prob = ODEProblem(lr!, u0,ts,p)
+sol  = solve(prob);
+```
+
+kita selesaikan problem seperti biasa, dan plot.
+```julia
+plot(sol, vars=(1,2,3))
+```

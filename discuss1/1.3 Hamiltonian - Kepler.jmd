@@ -1,0 +1,95 @@
+## 1.3 Lintasan orbit dan Hamiltonian
+
+Problem kepler adalah problem lintasan orbit dan salah satu bagian dari contoh gaya sentral, yang dimana memiliki potensial proposional terhadap,
+
+$$
+U(r) \approx -\frac{1}{r}
+$$
+
+problem persamaan differensial ini bisa di selesaikan dengan cara hamiltonian.
+
+$$
+H(p,q) = T(p,q) + V(p,q)
+$$
+
+problem kepler 2D pada koordinat kartesian memiliki hamiltonian
+
+$$
+H(p,q) = \frac{1}{2}(p_1^2 + p_2^2) - \frac{1}{\sqrt{q_1^2 + q_2^2}}
+$$
+
+evolusi dinamik objek yang dalam hamiltonian tersebut dapat dilihat dari persamaan hamilton.
+$$
+\dot{p} = -\frac{\partial H}{\partial q} \quad \text{dan} \quad \dot{q} = \frac{\partial H}{\partial p}
+$$
+
+problem ini dapat diimplementasikan sebagai problem dinamik
+
+```
+DynamicalODEProblem(vdot,qdot,v0,u0,ts,p,cb)
+```
+
+Fungsi hamiltonian dapat kita tulis
+```julia
+using DifferentialEquations
+using Plots
+using LinearAlgebra
+
+H(p,q) = norm(p)^2 / 2 - inv(norm(q))
+```
+
+Selanjutnya, kita tulis $\dot{p}$ dan $\dot{q}$, tanpa harus melakukan derivasi secara manual dengan tulis tangan, pekerjaan ini dapat diautomasi dengan teknik **automatic differentiation**. Teknik ini memungkinkan teknik chain rule secara otomatis di implementasi dalam komputer. *The real magic*.
+```julia
+using Flux: gradient
+
+grad!(du, args...) = du .= gradient(args...)[1]
+
+pdot(du,p,q,pr,t) = grad!(du, q-> -H(p,q), q)
+qdot(du,p,q,pr,t) = grad!(du, p->  H(p,q), p)
+```
+
+Setelah mendapatkan fungsi `pdot` dan `qdot`, ini dapat kita implementasikan kedalam problem ODE dinamik. Problem ini sebenarnya dapat di implementasi kedalam ODE biasa, namun kita ingin memperlihatkan beberapa opsi yang ditawarkan package *DifferentialEquations.jl*.
+```julia
+#nilai awal
+p0 = [0.0, 3.0]
+q0 = [0.2, 0.0]
+ts = (0.0, 50.0)
+
+prob = DynamicalODEProblem(pdot,qdot,p0,q0,ts)
+# kita gunakan solver RK4()
+sol  = solve(prob,RK4());
+```
+
+Kita plot orbit-nya,
+```julia
+plot(sol, vars=(3,4))
+```
+
+Dapat kita lihat, orbit-nya cukup aneh, jari-jari lintasan semakin mengecil. Padahal hamiltonian tidak ada mengindikasikan adanya disipasi. Hal ini lagi dapat kita analisis kedalam analisis kuantitas konservatif, dan angular momentum!
+
+$$
+E(p,q) = H(p,q) \quad \text{dan} \quad \mathbf{L}(p,q) = \mathbf{q} \times \mathbf{p}
+$$
+
+implementasi fungsi diatas, dan hitung variasi energinya terhadap nilai awal,
+```julia
+L(p,q) = q[1] * p[2] - q[2] * p[1]
+
+ΔE = (H(p0,q0) .- map(u -> H(u[1,:],u[2,:]),sol.u))/abs(H(p0,q0))
+ΔL = (L(p0,q0) .- map(u -> L(u[1,:],u[2,:]),sol.u))/abs(L(p0,q0))
+```
+
+selanjutnya kita plot perubahan energi dan momentum
+```julia
+plot(sol.t,ΔE)
+plot!(sol.t,ΔL)
+```
+
+Kita selesaikan ulang menggunakan solver dan toleransi yang lebih akurat
+```julia
+sol  = solver(prob, Tsit5(), reltol=1e-6,abstol=1e-8)
+ΔE = (H(p0,q0) .- map(u -> H(u[1,:],u[2,:]),sol.u))/abs(H(p0,q0))
+ΔL = (L(p0,q0) .- map(u -> L(u[1,:],u[2,:]),sol.u))/abs(L(p0,q0))
+plot(sol.t,ΔE)
+plot!(sol.t,ΔL)
+```

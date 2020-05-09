@@ -1,0 +1,56 @@
+## 1.2 Osilator Harmonik dan Analisis Fisis
+
+Osilator harmonik merupakan dasar dari persamaan yang memiliki solusi periodik. Salah satu analisis akurasi dalam hasil persamaan differensial adalah analisis kuantitas yang konservatif atau invariant terhadap waktu, apakah kuantitas tersebut relatif konstan atau tidak.
+
+Persamaan osilator harmonik ditambah gaya hambat adalah
+
+$$
+\ddot{x} - b\dot{x} - ω^2 x = 0
+$$
+
+dengan kondisi yang memisahkan solusi underdamped, overdamped dan critical damping adalah
+
+$$
+\sqrt{\omega^2 - \frac{b^2}{2}} > 0 \; ?
+$$
+
+Pertama-tama, untuk mencari solver yang tepat, kita analisis energi terlebih dahulu. Dapat kita tulis persamaan differensial diatas dalam code
+```julia
+function harmonic!(du,u,p,t)
+  b,w = p
+  du[1] = u[2]
+  du[2] =  - b * du[1] - w^2 * u[1]
+end
+
+# nilai awal
+u0 = [5.0, 0.0]
+p  = (7.0, 4.0)
+ts = (0.0,20.0)
+
+prob = ODEProblem(harmonic!, u0,ts,p)
+sol  = solve(prob);
+```
+
+lalu plot evolusi posisi dan plot fasa nya
+```julia
+pl1 = plot(sol, vars=(0,1));
+pl2 = plot(sol, vars=(1,2))
+
+plot(pl1,pl2, size=(800,350))
+```
+
+dan kita analisis evolusi energi nya
+```julia
+E(pp,x) = pp^2 / 2 + p[2]^2 * x^2 / 2
+
+plot(sol.t, (E(u0[2],u0[1]) .- map(u -> E(u[2],u[1]),sol.u))/abs(E(u0[2],u0[1])))
+```
+
+dari hal tersebut dapat kita tentukan setting terbaik yang dapat dipilih.
+
+Selanjutnya, dengan ini kita bisa melanjutkan hasil plot untuk tiga kasus damping.
+```julia
+sol = solve(prob, reltol=1e-6,abstol=1e-10)
+
+plot(sol.t, (E(u0[2],u0[1]) .- map(u -> E(u[2],u[1]),sol.u))/abs(E(u0[2],u0[1])))
+```

@@ -1,0 +1,57 @@
+## 1.1 Gerak projektil dan gaya hambat
+
+Gerak projektil dalam 2 dimensi merupakan masalah trivial yang sangat mudah diselesaikan secara analitik. Namun untuk gaya hambat tidak banyak yang bisa menyelesaikannya karena dibutuhkan penyelesaian integral yang cukup lihai.
+
+Disini akan dicari solusi dari persamaan gerak yang memiliki gaya hambat dengan bentuk
+
+$$
+\mathbf{F}_{d} = -b \vert v^{\gamma-1} \vert \mathbf{v}
+$$
+
+maka persamaan gerak dalam dimensi dapat ditulis dengan
+
+$$
+\ddot{y} = - g - b \vert\dot{y}^{y-1}\vert \dot{y} \\
+\ddot{x} = - b \vert\dot{x}^{x-1}\vert \dot{x}
+$$
+
+Perasamaan adalah persamaan differensial orde dua, maka dimodelkan persamaan tersebut, dengan membentuk `u = [x,y,vx,vy]`, maka
+```julia
+using DifferentialEquations
+using Plots
+
+function eqm!(du, u,p,t)
+  g,b,γ   = p
+  du[1] = u[3]
+  du[2] = u[4]
+  du[3] = -b * abs(du[1]^(γ-1)) * du[1]
+  du[4] = -g -b * abs(du[2]^(γ-1)) * du[2]
+end
+
+# nilai awal
+u0 = [0.0, 100.0, 30.0, 40.0]
+p  = (9.81, 0.2, 1.0)
+ts = (0.0, 20.0)
+
+# selesaikan
+prob = ODEProblem(eqm!, u0,ts,p)
+sol  = solve(prob)
+
+plot(sol, vars=(1,2))
+```
+
+dapat kita lihat bahwa solusinya adalah solusi dimana tidak ada kondisi batas untuk ketinggian (lantai), sehingga gerak terus jatuh kebawah. Lalu bagaimana jika kita membuat kondisi lantai, dimana disaat `y = 0`, gerak akan memantul. Kondisi ini disebut sebagai integrator, dimana ada kondisi modifikasi pada time-step nya. Kondisi memantul dapat kita tulis,
+```julia
+# kondisi memantul
+condition(u,t,integrator) = u[2] # di apply saat condition = 0.0
+affect!(integrator) = integrator.u[4] = -0.9 * integrator.u[4]
+```
+
+`condition = 0` merupakan fungsi saat integrator di implementasikan, dan `affect!` adalah apa yang terjadi saat kondisi tersebut dicapai. Kita implementasi kondisi ini kedalam fungsi `callback()`
+```julia
+cb = ContinuousCallback(condition, affect!)
+prob = ODEProblem(eqm!, u0,ts,p, callback=cb)
+sol  = solve(prob)
+
+plot(sol, vars=(1,2))
+```
